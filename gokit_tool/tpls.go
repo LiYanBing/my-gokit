@@ -290,11 +290,17 @@ func New{{FirstUpper .ServiceName}}() {{.PkgName}}.{{.ServiceName}}Server {
 	return &service{}
 }
 
-{{- range .Methods}}
-func (s *service) {{.Name}}(ctx context.Context, req *{{$.PkgName}}.{{.RequestName}}) (*{{$.PkgName}}.{{.ResponseName}}, error) {
-	return new({{$.PkgName}}.{{.ResponseName}}), nil
+func (s *service) HelloWorld(ctx context.Context, req *{{.PkgName}}.HelloWorldRequest) (*{{.PkgName}}.HelloWorldResponse, error) {
+	return &{{.PkgName}}.HelloWorldResponse{
+		Output: "Hello " + req.Input,
+	}, nil
 }
-{{end}}
+
+func (s *service) Ping(ctx context.Context, req *{{.PkgName}}.PingRequest) (*{{.PkgName}}.PingResponse, error) {
+	return &{{.PkgName}}.PingResponse{
+		Status: "pong " + req.Service,
+	}, nil
+}
 `
 
 	serverTemplate = `package server

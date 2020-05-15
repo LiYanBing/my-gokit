@@ -7,7 +7,7 @@ import (
 
 const (
 	configTemplate = `{
-	"address":":9090"
+	"address":":4096"
 }`
 )
 
