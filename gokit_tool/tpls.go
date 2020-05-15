@@ -24,7 +24,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/smiler/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -78,7 +78,7 @@ import (
 
 	"github.com/go-kit/kit/transport/grpc"
 	"{{.ImportPath}}/endpoints"
-	"github.com/smiler/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -139,7 +139,7 @@ import (
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/sd/lb"
 	"github.com/hashicorp/consul/api"
-	"github.com/smiler/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -310,9 +310,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/smiler/my-gokit/deviceinfo"
-	"github.com/smiler/my-gokit/grpc_tool"
-	"github.com/smiler/my-gokit/props"
+	"github.com/liyanbing/my-gokit/deviceinfo"
+	"github.com/liyanbing/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"{{.ImportPath}}/transport"	
@@ -430,9 +430,9 @@ import (
 	"log"
 
 	"github.com/golang/glog"
-	"github.com/smiler/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 	"{{ServerPath .ImportPath}}"
-	"github.com/smiler/my-gokit/props"
+	"github.com/liyanbing/my-gokit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -498,7 +498,7 @@ func Client() {
 import (
 	"log"
 
-	"github.com/smiler/my-gokit/props"
+	"github.com/liyanbing/my-gokit/props"
 	"{{ServerClientPath .ImportPath}}"
 	"{{ServerPath .ImportPath}}"
 	"github.com/spf13/cobra"

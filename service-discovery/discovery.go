@@ -9,7 +9,7 @@ import (
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
-	"github.com/smiler/my-gokit/deviceinfo"
+	"github.com/liyanbing/my-gokit/deviceinfo"
 )
 
 var (

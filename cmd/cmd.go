@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/smiler/my-gokit/gokit_tool"
+	"github.com/liyanbing/my-gokit/gokit_tool"
 	"github.com/spf13/cobra"
 )
 
