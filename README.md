@@ -4,7 +4,7 @@ go get github.com/liyanbing/my-gokit
 ```
 
 #### 使用
-在指定目录生成项目，必须生成timi项目
+在指定目录生成项目，比如生成timi项目
 
 ```
 my-gokit -c -p=/Users/Leo/Desktop/shuinfo/my-gokit/timi
