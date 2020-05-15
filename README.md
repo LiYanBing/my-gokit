@@ -13,7 +13,7 @@ my-gokit -c -p=/Users/Leo/Desktop/shuinfo/my-gokit/timi
 -p：需要生成的微服务项目路径，这里是我的要生成的项目地址，主要需要在目录中加上项目的名称（这里是timi）
 ```
 
-##### 根据传递的项目路径生成当前项目的导入路径规则
+#### 根据传递的项目路径生成当前项目的导入路径规则
 
  1.如果当前的 projectPath 已经存在于go mod 的项目下，则会以go mod 的路径+/projectName 为导入路径
  > 例如 /Home/lise/Desktop/app/login；login为新创建的登录分布式模块，而/Home/lise/Desktop/app已经是一个存在go.mod(github.com/app)文件的项目， 则返回 github.com/app/login
@@ -25,7 +25,7 @@ my-gokit -c -p=/Users/Leo/Desktop/shuinfo/my-gokit/timi
  
  4.如果既不在go.mod 管理的项目下，也不在已经设置的gopath下面，则会自动创建一个 github.com/+projectname 的go mod依赖管理
  
- ##### 生成项目结构如下
+ #### 生成项目结构如下
  
  ```
 timi
@@ -57,7 +57,7 @@ timi
     └── service.go
 
 ```
-##### 结构说明
+#### 结构说明
 > api/api.go：整个timi项目 timi.proto 生成的 timi.pb.go 文件对应的 TimiServer 接口签名；这个文件没有实际意义；
 因为存在微服务之间的相互调用，所以这里仅仅为了方便其他需要调用该服务时方便查看当前服务提供有哪些接口
 注意：当前文件夹内容为自动生成
