@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/liyanbing/my-gokit/timi/cmd"
+	"github.com/liyanbing/my-gokit/example/timi/cmd"
 )
 
 func main() {

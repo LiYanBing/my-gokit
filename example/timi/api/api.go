@@ -3,7 +3,7 @@ package timi
 import (
 	"context"
 
-	timi "github.com/liyanbing/my-gokit/timi/grpc"
+	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
 )
 
 type Timi interface {

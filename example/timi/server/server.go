@@ -15,14 +15,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/liyanbing/my-gokit/deviceinfo"
+	"github.com/liyanbing/my-gokit/example/timi/grpc/transport"
+	"github.com/liyanbing/my-gokit/example/timi/service"
 	"github.com/liyanbing/my-gokit/grpc_tool"
 	"github.com/liyanbing/my-gokit/props"
-	"github.com/liyanbing/my-gokit/timi/grpc/transport"
-	"github.com/liyanbing/my-gokit/timi/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	timi "github.com/liyanbing/my-gokit/timi/grpc"
+	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
 )
 
 type Config struct {
@@ -53,40 +53,13 @@ func Server() {
 	}
 
 	var opts []grpc.ServerOption
-	//if cfg.Certificate != nil {
-	//cert, err := grpc_tool.LoadCertificates(cfg.Certificate)
-	//if err != nil {
-	//	glog.Fatal(err)
-	//}
-	//opts = append(opts, grpc.Creds(credentials.NewServerTLSFromCert(cert)))
-	//}
-	//cert, err := credentials.NewServerTLSFromFile("./certs/server.pem", "./certs/server.key")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//opts = append(opts, grpc.Creds(cert))
-
-	cert, err := tls.LoadX509KeyPair("./certs/server/server.pem", "./certs/server/server.key")
-	if err != nil {
-		log.Fatal(err)
+	if cfg.Certificate != nil {
+		cert, err := grpc_tool.LoadCertificates(cfg.Certificate)
+		if err != nil {
+			glog.Fatal(err)
+		}
+		opts = append(opts, grpc.Creds(credentials.NewServerTLSFromCert(cert)))
 	}
-
-	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile("./certs/ca.pem")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		log.Fatal(err)
-	}
-
-	c := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    certPool,
-	})
-	opts = append(opts, grpc.Creds(c))
 
 	grpcServer := grpc.NewServer(opts...)
 	svr := service.NewTimi()
@@ -151,4 +124,27 @@ func DefaultConfig(cfg Config) (Config, error) {
 		}
 	}
 	return cfg, nil
+}
+
+func CATls(rootCa, serverCa, serverKey string) grpc.ServerOption {
+	cert, err := tls.LoadX509KeyPair(serverCa, serverKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(rootCa)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatal(err)
+	}
+
+	return grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
+	}))
 }

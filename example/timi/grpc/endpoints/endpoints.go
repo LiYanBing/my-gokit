@@ -6,7 +6,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/liyanbing/my-gokit/grpc_tool"
 
-	timi "github.com/liyanbing/my-gokit/timi/grpc"
+	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
 )
 
 type Endpoints struct {

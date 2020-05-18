@@ -306,7 +306,10 @@ func (s *service) Ping(ctx context.Context, req *{{.PkgName}}.PingRequest) (*{{.
 	serverTemplate = `package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -427,12 +430,38 @@ func DefaultConfig(cfg Config) (Config, error) {
 	}
 	return cfg, nil
 }
+
+func CATls(rootCa, serverCa, serverKey string) grpc.ServerOption {
+	cert, err := tls.LoadX509KeyPair(serverCa, serverKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(rootCa)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatal(err)
+	}
+
+	return grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
+	}))
+}
 `
 	serverClientTemplate = `
 package client
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
 
 	"github.com/golang/glog"
@@ -496,6 +525,29 @@ func Client() {
 	log.Printf("Ping Response:%#v\n", *ret)
 }
 
+func CATls(rootCa, clientCa, clientKey, hostName string) grpc.DialOption {
+	cert, err := tls.LoadX509KeyPair(clientCa, clientKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(rootCa)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatal(err)
+	}
+
+	c := credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "localhost",
+		RootCAs:      certPool,
+	})
+	return grpc.WithTransportCredentials(c)
+}
 `
 
 	cmdTemplate = `

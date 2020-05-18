@@ -103,5 +103,7 @@ replace (
 	google.golang.org/genproto => github.com/googleapis/go-genproto v0.0.0-20200331122359-1ee6d9798940
 	google.golang.org/grpc => github.com/grpc/grpc-go v1.28.0
 )
+
+3、go mod tidy
 ```
 

@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	trans "github.com/go-kit/kit/transport/grpc"
-	timi "github.com/liyanbing/my-gokit/timi/grpc"
-	edp "github.com/liyanbing/my-gokit/timi/grpc/endpoints"
+	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
+	edp "github.com/liyanbing/my-gokit/example/timi/grpc/endpoints"
 )
 
 func NewClient(addr, serverName string, cert []byte) (timi.TimiServer, error) {

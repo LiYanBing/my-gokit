@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/transport/grpc"
+	"github.com/liyanbing/my-gokit/example/timi/grpc/endpoints"
 	"github.com/liyanbing/my-gokit/grpc_tool"
-	"github.com/liyanbing/my-gokit/timi/grpc/endpoints"
 
-	timi "github.com/liyanbing/my-gokit/timi/grpc"
+	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
 )
 
 type gRPCServer struct {
