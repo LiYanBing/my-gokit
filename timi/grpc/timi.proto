@@ -1,0 +1,25 @@
+syntax = "proto3";
+package timi;
+
+service timi {
+    // say hello world
+    rpc HelloWorld (HelloWorldRequest) returns (HelloWorldResponse) {}
+	// Ping
+	rpc Ping (PingRequest) returns (PingResponse) {}
+}
+
+message HelloWorldRequest {
+    string input = 1;
+}
+
+message HelloWorldResponse {
+    string output = 1;
+}
+
+message PingRequest {
+	string service = 1;
+}
+
+message PingResponse {
+	string status = 1;
+}

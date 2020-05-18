@@ -4,13 +4,13 @@ go get github.com/liyanbing/my-gokit
 ```
 
 #### 使用
-在指定目录生成项目，比如生成timi项目
+在指定目录生成项目，比如成timi项目
 
 ```
 my-gokit -c -p=/Users/Leo/Desktop/shuinfo/my-gokit/timi
 
--c：表示需要创建一个微服务项目（获取使用--create）
--p：需要生成的微服务项目路径，这里是我的要生成的项目地址，主要需要在目录中加上项目的名称（这里是timi）
+-c：表示需要创建一个微服务项目（或者使用--create）
+-p：需要生成的微服务项目路径，这里是我的要生成的项目地址，注意需要在目录中加上项目的名称（这里是timi）
 ```
 
 #### 根据传递的项目路径生成当前项目的导入路径规则
@@ -83,5 +83,25 @@ timi
 #### 启动客户端验证服务是否正常
 ```
     go run main.go client [--config-path=配置文件路径；默认使用conf/**-local.conf配置]
+```
+
+#### 如果有不能pull下来的包
+```
+1、设置 export GOPROXY=https://goproxy.io
+
+2、go.mod 添加以下包路径
+
+replace (
+	golang.org/x/crypto => github.com/golang/crypto v0.0.0-20200323165209-0ec3e9974c59
+	golang.org/x/mod => github.com/golang/mod v0.2.0
+	golang.org/x/net => github.com/golang/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/sync => github.com/golang/sync v0.0.0-20200317015054-43a5402ce75a
+	golang.org/x/sys => github.com/golang/sys v0.0.0-20200331124033-c3d80250170d
+	golang.org/x/text => github.com/golang/text v0.3.2
+	golang.org/x/tools => github.com/golang/tools v0.0.0-20200331202046-9d5940d49312
+	golang.org/x/xerrors => github.com/golang/xerrors v0.0.0-20191204190536-9bdfabe68543
+	google.golang.org/genproto => github.com/googleapis/go-genproto v0.0.0-20200331122359-1ee6d9798940
+	google.golang.org/grpc => github.com/grpc/grpc-go v1.28.0
+)
 ```
 
