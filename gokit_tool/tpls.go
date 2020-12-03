@@ -279,27 +279,31 @@ func gRPCDialOptions(serverName string, cert []byte) ([]grpc.DialOption, error) 
 
 import (
 	"context"
+	"io"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
+type {{FirstUpper .ServiceName}}Service interface {
+	io.Closer
+	{{.PkgName}}.{{FirstUpper .ServiceName}}Server
+}
+
 type service struct {
 }
 
-func New{{FirstUpper .ServiceName}}() {{.PkgName}}.{{.ServiceName}}Server {
-	return &service{}
-}
-
-func (s *service) HelloWorld(ctx context.Context, req *{{.PkgName}}.HelloWorldRequest) (*{{.PkgName}}.HelloWorldResponse, error) {
-	return &{{.PkgName}}.HelloWorldResponse{
-		Output: "Hello " + req.Input,
-	}, nil
+func New{{FirstUpper .ServiceName}}() ({{FirstUpper .ServiceName}}Service, error) {
+	return &service{}, nil
 }
 
 func (s *service) Ping(ctx context.Context, req *{{.PkgName}}.PingRequest) (*{{.PkgName}}.PingResponse, error) {
 	return &{{.PkgName}}.PingResponse{
 		Status: "pong " + req.Service,
 	}, nil
+}
+
+func (s *service) Close() error {
+	return nil
 }
 `
 
@@ -367,7 +371,10 @@ func Server() {
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	svr := service.New{{FirstUpper .ServiceName}}()
+	svr, err := service.New{{FirstUpper .ServiceName}}()
+    if err != nil {
+		log.Fatal(err)
+	}
 	{{.PkgName}}.Register{{FirstUpper .ServiceName}}Server(grpcServer, transport.NewGRPCServer(svr))
 
 	if cfg.Consul != nil {
@@ -504,16 +511,6 @@ func Client() {
 
 	cli := {{.PkgName}}.New{{FirstUpper .PkgName}}Client(conn)
 
-	// hello world
-	r, err := cli.HelloWorld(context.Background(), &{{.PkgName}}.HelloWorldRequest{
-		Input: "{{.ServiceName}}",
-	})
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	log.Printf("HelloWorld Response:%#v\n", *r)
-
 	// ping
 	ret, err := cli.Ping(context.Background(), &{{.PkgName}}.PingRequest{
 		Service: "{{.ServiceName}}",
@@ -607,11 +604,61 @@ func init() {
 package main
 
 import (
-	"{{CmdPath .ImportPath}}"
+	"log"
+	"math/rand"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"{{ServicePath .ImportPath}}"
+	"{{.ImportPath}}/transport"
+	"google.golang.org/grpc"
+
+	{{.PkgName}} "{{.ImportPath}}"
 )
 
 func main() {
-	cmd.Execute()
+	rand.Seed(time.Now().UnixNano())
+
+	handle, err := service.New{{.ServiceName}}()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	listener, err := net.Listen("tcp", ":9090")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	grpcSvr := grpc.NewServer()
+	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr, transport.NewGRPCServer(handle))
+
+	graceful(func() {
+		grpcSvr.GracefulStop()
+		err := handle.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
+
+	err = grpcSvr.Serve(listener)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func graceful(do func()) {
+	ch := make(chan os.Signal, 10)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	go func() {
+		select {
+		case <-ch:
+			signal.Stop(ch)
+			do()
+		}
+	}()
 }
 `
 )

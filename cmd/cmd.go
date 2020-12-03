@@ -13,10 +13,7 @@ import (
 
 var (
 	create      bool
-	api         bool
-	endpoints   bool
-	transports  bool
-	client      bool
+	gen         bool
 	projectPath string
 	serviceName string
 )
@@ -31,12 +28,9 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().BoolVarP(&create, "create", "c", false, "是否是生成项目")
-	rootCmd.Flags().StringVarP(&projectPath, "project-path", "p", "./app", "生成项目路径，需要包含项目名称")
+	rootCmd.Flags().StringVarP(&projectPath, "project-path", "p", "", "生成项目路径，需要包含项目名称,例如 ./app")
 	rootCmd.Flags().StringVarP(&serviceName, "service-name", "s", "", "proto 服务名称；默认跟项目名称相同")
-	rootCmd.Flags().BoolVarP(&api, "api", "i", false, "是否生成 api 文件")
-	rootCmd.Flags().BoolVarP(&client, "client", "", false, "是否生成 client 文件")
-	rootCmd.Flags().BoolVarP(&endpoints, "endpoints", "e", false, "是否生成 endpoints 文件")
-	rootCmd.Flags().BoolVarP(&transports, "transport", "t", false, "是否生成 transport 文件")
+	rootCmd.Flags().BoolVarP(&gen, "generate", "g", false, "是否重新生成 api/api.go grpc/client、endpoints、transport文件")
 }
 
 func Execute() {
@@ -58,15 +52,17 @@ func work() {
 		serviceName = filepath.Base(projectPath)
 	}
 
+	if len(strings.TrimSpace(projectPath)) == 0 {
+		log.Fatal("please input -p flags")
+	}
+
 	if create {
 		err := gokit_tool.CreateProtoAndCompile(filepath.Join(projectPath, "grpc"), serviceName, filepath.Base(projectPath))
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		if !api && !endpoints && !transports && !client {
-			api, endpoints, transports, client = true, true, true, true
-		}
+		gen = true
 	}
 
 	serviceName = FirstUpper(serviceName)
@@ -82,13 +78,19 @@ func genGRPCServerAndClient(projectPath string) error {
 	grpcPath := filepath.Join(projectPath, "grpc")
 	protoFilePath := filepath.Join(grpcPath, fmt.Sprintf("%v.pb.go", pkgName))
 
+	// compile protos
+	err := gokit_tool.CompileProto(grpcPath, serviceName, pkgName)
+	if err != nil {
+		return err
+	}
+
 	// parse project/grpc/prject.pb.go file
 	data, err := gokit_tool.ParseProtoPBFile(protoFilePath, serviceName, pkgName, importPath, projectPath)
 	if err != nil {
 		return err
 	}
 
-	if api || create {
+	if gen || create {
 		// create /project/api/api.go file
 		err = gokit_tool.GenAPI(filepath.Join(projectPath, "api", "api.go"), data)
 		if err != nil {
@@ -96,7 +98,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if endpoints || create {
+	if gen || create {
 		// create project/grpc/endpoints/endpoints.go
 		err = gokit_tool.GenEndpoints(filepath.Join(grpcPath, "endpoints", "endpoints.go"), data)
 		if err != nil {
@@ -104,7 +106,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if transports || create {
+	if gen || create {
 		// create project/grpc/transport/transport.go
 		err = gokit_tool.GenTransport(filepath.Join(grpcPath, "transport", "transport.go"), data)
 		if err != nil {
@@ -112,7 +114,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if client || create {
+	if gen || create {
 		// create project/grpc/client/client.go
 		err = gokit_tool.GenClient(filepath.Join(grpcPath, "client", "client.go"), data)
 		if err != nil {
@@ -127,12 +129,6 @@ func genGRPCServerAndClient(projectPath string) error {
 			return err
 		}
 
-		// create project/cmd/main.go
-		err = gokit_tool.GenCMD(projectPath, pkgName, importPath)
-		if err != nil {
-			return err
-		}
-
 		// create project/service/service.go
 		err = gokit_tool.GenService(filepath.Join(projectPath, "service", "service.go"), data)
 		if err != nil {
@@ -140,22 +136,22 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 
 		// create project/server/server.go
-		err = gokit_tool.GenServer(filepath.Join(projectPath, "server", "server.go"), data)
-		if err != nil {
-			return err
-		}
+		//err = gokit_tool.GenServer(filepath.Join(projectPath, "server", "server.go"), data)
+		//if err != nil {
+		//	return err
+		//}
 
 		// create project/client/client.go
-		err = gokit_tool.GenServerClient(filepath.Join(projectPath, "client", "client.go"), data)
-		if err != nil {
-			return err
-		}
+		//err = gokit_tool.GenServerClient(filepath.Join(projectPath, "client", "client.go"), data)
+		//if err != nil {
+		//	return err
+		//}
 
 		// create project/cmd/cmd.go
-		err = gokit_tool.GenCmd(filepath.Join(projectPath, "cmd", "cmd.go"), data)
-		if err != nil {
-			return err
-		}
+		//err = gokit_tool.GenCmd(filepath.Join(projectPath, "cmd", "cmd.go"), data)
+		//if err != nil {
+		//	return err
+		//}
 
 		// create project/main.go
 		err = gokit_tool.GenMain(filepath.Join(projectPath, "main.go"), data)

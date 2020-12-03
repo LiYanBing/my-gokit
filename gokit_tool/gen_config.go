@@ -13,17 +13,17 @@ const (
 
 func GenConfig(projectPath, pkgName string) error {
 	path := filepath.Join(projectPath, "conf")
-	err := createFile(filepath.Join(path, fmt.Sprintf("%s-local.conf", pkgName)), configTemplate, 0666)
+	err := createFile(filepath.Join(path, fmt.Sprintf("%s-local.conf", pkgName)), configTemplate, false, 0666)
 	if err != nil {
 		return err
 	}
 
-	err = createFile(filepath.Join(path, fmt.Sprintf("%s-test.conf", pkgName)), configTemplate, 0666)
+	err = createFile(filepath.Join(path, fmt.Sprintf("%s-test.conf", pkgName)), configTemplate, false, 0666)
 	if err != nil {
 		return err
 	}
 
-	err = createFile(filepath.Join(path, fmt.Sprintf("%s-pro.conf", pkgName)), configTemplate, 0666)
+	err = createFile(filepath.Join(path, fmt.Sprintf("%s-pro.conf", pkgName)), configTemplate, false, 0666)
 	if err != nil {
 		return err
 	}

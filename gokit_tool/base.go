@@ -13,7 +13,7 @@ import (
 // 例如 /Home/lise/Desktop/app/test.txt    1235
 // 如果 /Home/lise/Desktop/app 中有不存在的文件夹则会创建整个路径的文件夹
 // 然后创建test.txt文件并蒋 1235 写入test.txt中
-func createFile(filePath, content string, perm os.FileMode) error {
+func createFile(filePath, content string, override bool, perm os.FileMode) error {
 	dir := filepath.Dir(filePath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0777)
@@ -22,12 +22,14 @@ func createFile(filePath, content string, perm os.FileMode) error {
 		}
 	}
 
-	_, err := os.Lstat(filePath)
-	if !os.IsNotExist(err) {
-		return nil
+	if !override {
+		_, err := os.Lstat(filePath)
+		if !os.IsNotExist(err) {
+			return nil
+		}
 	}
 
-	newFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, perm)
+	newFile, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
