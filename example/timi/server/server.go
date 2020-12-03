@@ -14,15 +14,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/liyanbing/my-gokit/deviceinfo"
-	"github.com/liyanbing/my-gokit/example/timi/grpc/transport"
-	"github.com/liyanbing/my-gokit/example/timi/service"
-	"github.com/liyanbing/my-gokit/grpc_tool"
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/deviceinfo"
+	"sobe-kit/example/timi/grpc/transport"
+	"sobe-kit/example/timi/service"
+	"sobe-kit/grpc_tool"
+	"sobe-kit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
+	timi "sobe-kit/example/timi/grpc"
 )
 
 type Config struct {

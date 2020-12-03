@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
+	timi "sobe-kit/example/timi/grpc"
 )
 
 type service struct {

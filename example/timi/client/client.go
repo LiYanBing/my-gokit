@@ -8,13 +8,13 @@ import (
 	"log"
 
 	"github.com/golang/glog"
-	"github.com/liyanbing/my-gokit/example/timi/server"
-	"github.com/liyanbing/my-gokit/grpc_tool"
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/example/timi/server"
+	"sobe-kit/grpc_tool"
+	"sobe-kit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
+	timi "sobe-kit/example/timi/grpc"
 )
 
 func CATls(rootCa, clientCa, clientKey, hostName string) grpc.DialOption {

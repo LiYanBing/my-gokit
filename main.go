@@ -1,6 +1,6 @@
 package main
 
-import "github.com/liyanbing/my-gokit/cmd"
+import "sobe-kit/cmd"
 
 func main() {
 	cmd.Execute()

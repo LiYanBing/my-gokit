@@ -1,6 +1,6 @@
 #### 安装 
 ```
-go get github.com/liyanbing/my-gokit
+go get sobe-kit
 ```
 
 #### 使用

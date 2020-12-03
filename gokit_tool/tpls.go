@@ -24,7 +24,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -78,7 +78,7 @@ import (
 
 	"github.com/go-kit/kit/transport/grpc"
 	"{{.ImportPath}}/endpoints"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -139,7 +139,7 @@ import (
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/sd/lb"
 	"github.com/hashicorp/consul/api"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -319,9 +319,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/liyanbing/my-gokit/deviceinfo"
-	"github.com/liyanbing/my-gokit/grpc_tool"
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/deviceinfo"
+	"sobe-kit/grpc_tool"
+	"sobe-kit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"{{.ImportPath}}/transport"	
@@ -465,9 +465,9 @@ import (
 	"log"
 
 	"github.com/golang/glog"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 	"{{ServerPath .ImportPath}}"
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -556,7 +556,7 @@ func CATls(rootCa, clientCa, clientKey, hostName string) grpc.DialOption {
 import (
 	"log"
 
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/props"
 	"{{ServerClientPath .ImportPath}}"
 	"{{ServerPath .ImportPath}}"
 	"github.com/spf13/cobra"

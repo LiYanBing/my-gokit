@@ -3,9 +3,9 @@ package cmd
 import (
 	"log"
 
-	"github.com/liyanbing/my-gokit/example/timi/client"
-	"github.com/liyanbing/my-gokit/example/timi/server"
-	"github.com/liyanbing/my-gokit/props"
+	"sobe-kit/example/timi/client"
+	"sobe-kit/example/timi/server"
+	"sobe-kit/props"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
-	"github.com/liyanbing/my-gokit/deviceinfo"
+	"sobe-kit/deviceinfo"
 )
 
 type ConsulServer struct {

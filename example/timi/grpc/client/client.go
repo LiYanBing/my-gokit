@@ -13,13 +13,13 @@ import (
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/sd/lb"
 	"github.com/hashicorp/consul/api"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	trans "github.com/go-kit/kit/transport/grpc"
-	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
-	edp "github.com/liyanbing/my-gokit/example/timi/grpc/endpoints"
+	timi "sobe-kit/example/timi/grpc"
+	edp "sobe-kit/example/timi/grpc/endpoints"
 )
 
 func NewClient(addr, serverName string, cert []byte) (timi.TimiServer, error) {

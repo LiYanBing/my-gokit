@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
-	"github.com/liyanbing/my-gokit/grpc_tool"
+	"sobe-kit/grpc_tool"
 
-	timi "github.com/liyanbing/my-gokit/example/timi/grpc"
+	timi "sobe-kit/example/timi/grpc"
 )
 
 type Endpoints struct {
