@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"sobe-kit/gokit_tool"
 
 	"github.com/spf13/cobra"
@@ -13,7 +15,7 @@ import (
 
 var (
 	create      bool
-	gen         bool
+	reGen       bool
 	projectPath string
 	serviceName string
 )
@@ -30,7 +32,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&create, "create", "c", false, "是否是生成项目")
 	rootCmd.Flags().StringVarP(&projectPath, "project-path", "p", "", "生成项目路径，需要包含项目名称,例如 ./app")
 	rootCmd.Flags().StringVarP(&serviceName, "service-name", "s", "", "proto 服务名称；默认跟项目名称相同")
-	rootCmd.Flags().BoolVarP(&gen, "generate", "g", false, "是否重新生成 api/api.go grpc/client、endpoints、transport文件")
+	rootCmd.Flags().BoolVarP(&reGen, "re-generate", "r", false, "是否重新生成 api grpc/client、endpoints、transport")
 }
 
 func Execute() {
@@ -62,7 +64,7 @@ func work() {
 			log.Fatal(err)
 		}
 	} else {
-		gen = true
+		reGen = true
 	}
 
 	serviceName = FirstUpper(serviceName)
@@ -90,7 +92,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		return err
 	}
 
-	if gen || create {
+	if reGen || create {
 		// create /project/api/api.go file
 		err = gokit_tool.GenAPI(filepath.Join(projectPath, "api", "api.go"), data)
 		if err != nil {
@@ -98,7 +100,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if gen || create {
+	if reGen || create {
 		// create project/grpc/endpoints/endpoints.go
 		err = gokit_tool.GenEndpoints(filepath.Join(grpcPath, "endpoints", "endpoints.go"), data)
 		if err != nil {
@@ -106,7 +108,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if gen || create {
+	if reGen || create {
 		// create project/grpc/transport/transport.go
 		err = gokit_tool.GenTransport(filepath.Join(grpcPath, "transport", "transport.go"), data)
 		if err != nil {
@@ -114,7 +116,7 @@ func genGRPCServerAndClient(projectPath string) error {
 		}
 	}
 
-	if gen || create {
+	if reGen || create {
 		// create project/grpc/client/client.go
 		err = gokit_tool.GenClient(filepath.Join(grpcPath, "client", "client.go"), data)
 		if err != nil {
@@ -157,6 +159,24 @@ func genGRPCServerAndClient(projectPath string) error {
 		err = gokit_tool.GenMain(filepath.Join(projectPath, "main.go"), data)
 		if err != nil {
 			return err
+		}
+
+		// create build.sh
+		err = gokit_tool.GenBuild(filepath.Join(projectPath, "build.sh"), data)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		// create Dockerfile
+		err = gokit_tool.GenDockerfile(filepath.Join(projectPath, "Dockerfile"), data)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		// create Makefile
+		err = gokit_tool.GenMakefile(filepath.Join(projectPath, "Makefile"), data)
+		if err != nil {
+			return errors.WithStack(err)
 		}
 	}
 	return nil

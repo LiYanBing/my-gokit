@@ -29,10 +29,11 @@ func createFile(filePath, content string, override bool, perm os.FileMode) error
 		}
 	}
 
-	newFile, err := os.OpenFile(filePath, os.O_TRUNC|os.O_WRONLY, perm)
+	newFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
+	newFile.Truncate(0)
 	defer func() {
 		_ = newFile.Sync()
 		_ = newFile.Close()

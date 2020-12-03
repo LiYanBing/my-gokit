@@ -281,6 +281,7 @@ import (
 	"context"
 	"io"
 
+    "sobe-kit/props"
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
@@ -289,10 +290,20 @@ type {{FirstUpper .ServiceName}}Service interface {
 	{{.PkgName}}.{{FirstUpper .ServiceName}}Server
 }
 
+type Config struct {
+	Name string 
+	Age  int    
+}
+
 type service struct {
 }
 
 func New{{FirstUpper .ServiceName}}() ({{FirstUpper .ServiceName}}Service, error) {
+    var cfg Config
+	err := props.ConfigFromFile(props.JsonDecoder(&cfg), props.Always, props.FilePath("./{{.PkgName}}"))
+	if err != nil {
+		return nil, err
+	}
 	return &service{}, nil
 }
 
@@ -608,10 +619,9 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
+	"sobe-kit/graceful"
 	"{{ServicePath .ImportPath}}"
 	"{{.ImportPath}}/transport"
 	"google.golang.org/grpc"
@@ -621,13 +631,12 @@ import (
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-
 	handle, err := service.New{{.ServiceName}}()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	listener, err := net.Listen("tcp", ":9090")
+	listener, err := net.Listen("tcp", os.Getenv("ADDRESS"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -635,7 +644,7 @@ func main() {
 	grpcSvr := grpc.NewServer()
 	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr, transport.NewGRPCServer(handle))
 
-	graceful(func() {
+	graceful.Graceful(func() {
 		grpcSvr.GracefulStop()
 		err := handle.Close()
 		if err != nil {
@@ -643,22 +652,87 @@ func main() {
 		}
 	})
 
+	log.Printf("%v started with %v", "{{.PkgName}}", listener.Addr().String())
 	err = grpcSvr.Serve(listener)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
-
-func graceful(do func()) {
-	ch := make(chan os.Signal, 10)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	go func() {
-		select {
-		case <-ch:
-			signal.Stop(ch)
-			do()
-		}
-	}()
-}
 `
+	buildTemplate = `#!/bin/sh
+IMAGE_TAG=v0.0.1
+SERVICE_NAME={{.PkgName}}
+IMAGE_NAME=docker-sobe.wxhoutai.com:3333/timi/${SERVICE_NAME}
+
+set -o errexit
+GOOS=linux GOARCH=amd64 go build -i -o _bin/${SERVICE_NAME}
+docker build . -t ${IMAGE_NAME}:${IMAGE_TAG}
+docker push ${IMAGE_NAME}:${IMAGE_TAG}
+rm -f _bin/${SERVICE_NAME}`
+
+	dockerFileTemplate = `FROM alpine:3.12.0
+RUN apk add --update ca-certificates && \
+    rm -rf /var/cache/apk/* /tmp/*
+ENV PORT 2081
+ENV SERVER_NAME {{.PkgName}}
+ENV SERVER_ADDR ${PORT}
+WORKDIR /app
+ADD _bin/${SERVER_NAME} /app
+EXPOSE ${PORT}
+CMD [ "./{{.PkgName}}" ]
+`
+
+	makefileTemplate = `PROJECT_NAME=$(notdir $(shell pwd))
+
+vpath $(PROJECT_NAME) ./_bin
+vpath %.proto ./grpc/protos
+vpath %.pb.go ./grpc
+
+PROTO_PATH=./grpc/protos
+PB_TARGET=./grpc
+
+export ADDRESS=0.0.0.0:2081
+
+$(PROJECT_NAME).pb.go: $(PROJECT_NAME).proto
+	@echo "building *.pb.go"
+	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
+	sobe-kit -r -p=./../{{.PkgName}}
+
+$(PROJECT_NAME):  $(PROJECT_NAME).pb.go
+	@echo "build " $(PROJECT_NAME)
+	if [ ! -e _bin ]; then mkdir _bin; fi;
+	go build -i -o _bin/$(PROJECT_NAME)
+
+.PHONY: proto
+proto:
+	@echo "building *.pb.go"
+	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
+	sobe-kit -r -p=./../{{.PkgName}}
+
+.PHONY: build
+build: $(PROJECT_NAME)
+	@echo successful
+
+.PHONY: run
+run: $(PROJECT_NAME)
+	@echo "start "  $(PROJECT_NAME)
+	for i in $$(ps -ef | grep _bin/$(PROJECT_NAME) | grep -v grep | awk '{print $$2}') ; do \
+	   kill $$i;\
+	done
+	nohup _bin/$(PROJECT_NAME) >> _bin/nohup.out 2>&1 &
+
+.PHONY: clean
+clean:
+	rm -rf _bin
+	rm -rf ./api
+	rm -rf ./grpc/*.go
+	rm -rf ./grpc/client
+	rm -rf ./grpc/endpoints
+	rm -rf ./grpc/transport
+
+.PHONY: image
+image:
+	make proto
+	rm -rf _bin
+	sh ./build.sh`
 )
