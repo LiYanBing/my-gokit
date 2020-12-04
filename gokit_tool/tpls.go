@@ -1,6 +1,27 @@
 package gokit_tool
 
 const (
+	protoTemplate = `syntax = "proto3";
+package {{.PkgName}};
+
+service {{.ServiceName}} {
+	rpc Health (HealthRequest) returns (HealthResponse) {}
+}
+
+message HealthRequest {
+	string service = 1;
+}
+
+message HealthResponse {
+	int64 status = 1;
+}
+`
+
+	constantTemplate = `package %s 
+
+var (
+	ServiceName = _%s_serviceDesc.ServiceName
+)`
 	apiTemplate = `
 package {{.PkgName}}
 
@@ -133,6 +154,7 @@ import (
 	"fmt"
 	"io"
 
+    "sobe-kit/grpc_tool"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
@@ -148,18 +170,23 @@ import (
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
-func NewClient(addr, serverName string, cert []byte) ({{.PkgName}}.{{.ServiceName}}Server, error) {
-	opts, err := gRPCDialOptions(serverName, cert)
+func NewClient(opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Server, error) {
+	o := grpc_tool.NewClientOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	grpcOpts, err := gRPCDialOptions(o.ServerName, o.Cert)
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.Dial("{{.PkgName}}:{{.Port}}", grpcOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	wrap := wrapMethod(serverName, conn)
+	wrap := wrapMethod({{.PkgName}}.ServiceName, conn)
 	return &edp.Endpoints{
 	{{- range .Methods}}
 		{{.Name}}Endpoint: wrap("{{.Name}}", new({{$.PkgName}}.{{.ResponseName}})),
@@ -186,7 +213,12 @@ func wrapMethod(serviceName string, conn *grpc.ClientConn) func(method string, r
 }
 
 // consul load balance
-func NewClientWithConsul(consulAddr, dataCenter, serverName string, cert []byte, tags []string, logger log.Logger) ({{.PkgName}}.{{.ServiceName}}Server, error) {
+func NewClientWithConsul(consulAddr, dataCenter string, opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Server, error) {
+	o := grpc_tool.NewClientOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	consulClient, err := api.NewClient(&api.Config{
 		Address:    consulAddr,
 		Datacenter: dataCenter,
@@ -195,13 +227,13 @@ func NewClientWithConsul(consulAddr, dataCenter, serverName string, cert []byte,
 		return nil, err
 	}
 
-	opts, err := gRPCDialOptions(serverName, cert)
+	grpcOpts, err := gRPCDialOptions(o.ServerName, o.Cert)
 	if err != nil {
 		return nil, err
 	}
 
-	instanter := consul.NewInstancer(consul.NewClient(consulClient), logger, {{.PkgName}}.ServiceName, tags, true)
-	retryWrap := retryEndpoint(instanter, serverName, logger, opts...)
+	instanter := consul.NewInstancer(consul.NewClient(consulClient), o.Logger, {{.PkgName}}.ServiceName, o.Tags, true)
+	retryWrap := retryEndpoint(instanter, {{.PkgName}}.ServiceName, o.Logger, grpcOpts...)
 	return &edp.Endpoints{
 	{{- range .Methods}}
 		{{.Name}}Endpoint: retryWrap("{{.Name}}", new({{$.PkgName}}.{{.ResponseName}})),
@@ -275,13 +307,25 @@ func gRPCDialOptions(serverName string, cert []byte) ([]grpc.DialOption, error) 
 	return opts, nil
 }`
 
-	serviceTemplate = `package service
+	healthTemplate = `package service
 
 import (
 	"context"
+
+	{{.PkgName}} "{{.ImportPath}}"
+)
+
+func (s *service) Health(_ context.Context, _ *{{.PkgName}}.HealthRequest) (*{{.PkgName}}.HealthResponse, error) {
+	return &{{.PkgName}}.HealthResponse{}, nil
+}`
+
+	serviceTemplate = `package service
+
+import (
 	"io"
 
     "sobe-kit/props"
+
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
@@ -291,8 +335,9 @@ type {{FirstUpper .ServiceName}}Service interface {
 }
 
 type Config struct {
-	Name string 
-	Age  int    
+    Port int    {{.Quote}}json:"port"{{.Quote}} 
+	Name string {{.Quote}}json:"name"{{.Quote}}
+	Age  int    {{.Quote}}json:"age"{{.Quote}}
 }
 
 type service struct {
@@ -300,17 +345,11 @@ type service struct {
 
 func New{{FirstUpper .ServiceName}}() ({{FirstUpper .ServiceName}}Service, error) {
     var cfg Config
-	err := props.ConfigFromFile(props.JsonDecoder(&cfg), props.Always, props.FilePath("./{{.PkgName}}"))
+	err := props.ConfigFromFile(props.JsonDecoder(&cfg), props.Always, props.FilePath("./conf/{{.PkgName}}.conf"))
 	if err != nil {
 		return nil, err
 	}
 	return &service{}, nil
-}
-
-func (s *service) Ping(ctx context.Context, req *{{.PkgName}}.PingRequest) (*{{.PkgName}}.PingResponse, error) {
-	return &{{.PkgName}}.PingResponse{
-		Status: "pong " + req.Service,
-	}, nil
 }
 
 func (s *service) Close() error {
@@ -621,7 +660,7 @@ import (
 	"os"
 	"time"
 
-	"sobe-kit/graceful"
+	"sobe-kit/grpc_tool"
 	"{{ServicePath .ImportPath}}"
 	"{{.ImportPath}}/transport"
 	"google.golang.org/grpc"
@@ -644,7 +683,7 @@ func main() {
 	grpcSvr := grpc.NewServer()
 	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr, transport.NewGRPCServer(handle))
 
-	graceful.Graceful(func() {
+	grpc_tool.Graceful(func() {
 		grpcSvr.GracefulStop()
 		err := handle.Close()
 		if err != nil {
@@ -659,6 +698,13 @@ func main() {
 	}
 }
 `
+
+	configTemplate = `{
+	"port": {{.Port}},
+	"name": "{{.PkgName}}",
+	"age": 18
+}`
+
 	buildTemplate = `#!/bin/sh
 IMAGE_TAG=v0.0.1
 SERVICE_NAME={{.PkgName}}
@@ -673,9 +719,9 @@ rm -f _bin/${SERVICE_NAME}`
 	dockerFileTemplate = `FROM alpine:3.12.0
 RUN apk add --update ca-certificates && \
     rm -rf /var/cache/apk/* /tmp/*
-ENV PORT 2081
+ENV PORT {{.Port}} 
 ENV SERVER_NAME {{.PkgName}}
-ENV SERVER_ADDR ${PORT}
+ENV SERVER_ADDR 0.0.0.0:{{.Port}}
 WORKDIR /app
 ADD _bin/${SERVER_NAME} /app
 EXPOSE ${PORT}
@@ -691,7 +737,7 @@ vpath %.pb.go ./grpc
 PROTO_PATH=./grpc/protos
 PB_TARGET=./grpc
 
-export ADDRESS=0.0.0.0:2081
+export ADDRESS=0.0.0.0:{{.Port}}
 
 $(PROJECT_NAME).pb.go: $(PROJECT_NAME).proto
 	@echo "building *.pb.go"
@@ -735,4 +781,50 @@ image:
 	make proto
 	rm -rf _bin
 	sh ./build.sh`
+
+	deploymentTemplate = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: sobe 
+  name: {{.PkgName}}-deploy
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: {{.PkgName}} 
+
+  template:
+    metadata:
+      labels:
+        name: {{.PkgName}} 
+        name: {{.PkgName}} 
+    spec:
+      containers:
+        - name: {{.PkgName}} 
+          image: docker-sobe.wxhoutai.com:3333/sobe/{{.PkgName}}:v0.0.1
+          imagePullPolicy: Always
+          ports:
+			- name: {{.PkgName}}-port
+              containerPort: {{.Port}}
+          livenessProbe:
+          readnessProbe:
+
+        - name: health
+          image: docker-sobe.wxhoutai.com:3333/timi/health:v0.0.1
+          imagePullPolicy: Always
+          command: [
+            "/health",
+            "--health_address=0.0.0.0:8081",
+            "--server_name=user-center",
+            "--server_address=127.0.0.1:2081"
+          ]
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 3
+`
 )

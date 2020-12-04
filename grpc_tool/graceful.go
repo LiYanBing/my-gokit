@@ -1,4 +1,4 @@
-package graceful
+package grpc_tool
 
 import (
 	"os"

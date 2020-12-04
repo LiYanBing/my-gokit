@@ -9,7 +9,7 @@ import (
 )
 
 // 解析指定的 ***.pb.go 文件，只解析 serviceName+Server 服务端接口部分
-func ParseProtoPBFile(fileName, serviceName, pkgName, importPath, projectPath string) (*Data, error) {
+func ParseProtoPBFile(fileName, serviceName string) ([]*Method, error) {
 	var (
 		methodList []*ast.Field
 	)
@@ -32,10 +32,10 @@ func ParseProtoPBFile(fileName, serviceName, pkgName, importPath, projectPath st
 		}
 		return !serviceServer
 	})
-	return genData(pkgName, serviceName, importPath, projectPath, methodList), nil
+	return genData(methodList), nil
 }
 
-func genData(pkgName, serviceName, importPath, projectPath string, methodList []*ast.Field) *Data {
+func genData(methodList []*ast.Field) []*Method {
 	methods := make([]*Method, 0, len(methodList))
 	for _, m := range methodList {
 		curF := m.Type.(*ast.FuncType)
@@ -55,13 +55,5 @@ func genData(pkgName, serviceName, importPath, projectPath string, methodList []
 			ResponseName: curF.Results.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name,
 		})
 	}
-
-	return &Data{
-		PkgName:     pkgName,
-		ServiceName: serviceName,
-		ImportPath:  importPath,
-		Methods:     methods,
-		Quote:       "`",
-		ProjectPath: projectPath,
-	}
+	return methods
 }

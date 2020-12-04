@@ -102,7 +102,6 @@ func ConfigFromFile(decoder Decoder, call Callback, opts ...Option) error {
 
 	for i := 1; i <= o.Retry; i++ {
 		content, err = GetConfigFromFile(o.FilePath)
-		fmt.Println("文件内容", string(content))
 		if err != nil {
 			retry := call(i, err)
 			if !retry {
@@ -111,7 +110,7 @@ func ConfigFromFile(decoder Decoder, call Callback, opts ...Option) error {
 			time.Sleep(Do(i))
 			continue
 		}
-		break
+		return decoder(content)
 	}
-	return decoder(content)
+	return fmt.Errorf("retry more than max")
 }

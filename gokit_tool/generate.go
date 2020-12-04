@@ -2,11 +2,18 @@ package gokit_tool
 
 import (
 	"bytes"
+	"fmt"
 	"go/format"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
 )
+
+// proto
+func GenProto(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, protoTemplate, false, false, data)
+}
 
 // api
 func GenAPI(filePath string, data *Data) error {
@@ -33,19 +40,23 @@ func GenService(filePath string, data *Data) error {
 	return genFileWithTemplate(filePath, serviceTemplate, false, true, data)
 }
 
-// server
-func GenServer(filePath string, data *Data) error {
-	return genFileWithTemplate(filePath, serverTemplate, false, true, data)
+// health
+func GenHealth(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, healthTemplate, false, true, data)
 }
 
-// client
-func GenServerClient(filePath string, data *Data) error {
-	return genFileWithTemplate(filePath, serverClientTemplate, false, true, data)
+// conf
+func GenConfig(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, configTemplate, false, false, data)
 }
 
-// cmd
-func GenCmd(filePath string, data *Data) error {
-	return genFileWithTemplate(filePath, cmdTemplate, false, true, data)
+// **.pb.go
+func CompileProto(path, serviceName, pkgName string) error {
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s && protoc --proto_path=./grpc/protos --go_out=plugins=grpc:./grpc ./grpc/protos/*.proto", pkgName))
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return createFile(filepath.Join(path, "grpc", "constant.go"), fmt.Sprintf(constantTemplate, pkgName, serviceName), true, 0666)
 }
 
 // main.go
@@ -68,6 +79,21 @@ func GenMakefile(filePath string, data *Data) error {
 	return genFileWithTemplate(filePath, makefileTemplate, false, false, data)
 }
 
+// server
+func GenServer(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, serverTemplate, false, true, data)
+}
+
+// client
+func GenServerClient(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, serverClientTemplate, false, true, data)
+}
+
+// cmd
+func GenCmd(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, cmdTemplate, false, true, data)
+}
+
 var (
 	tplFunc = template.FuncMap{
 		"FirstLower":       FirstLower,
@@ -87,6 +113,7 @@ type Data struct {
 	Methods     []*Method
 	Quote       string
 	ProjectPath string
+	Port        int
 }
 
 type Method struct {
