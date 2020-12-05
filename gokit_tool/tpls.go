@@ -675,7 +675,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	listener, err := net.Listen("tcp", os.Getenv("ADDRESS"))
+	listener, err := net.Listen("tcp", os.Getenv("SERVER_ADDRESS"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -708,7 +708,7 @@ func main() {
 	buildTemplate = `#!/bin/sh
 IMAGE_TAG=v0.0.1
 SERVICE_NAME={{.PkgName}}
-IMAGE_NAME=docker-sobe.wxhoutai.com:3333/timi/${SERVICE_NAME}
+IMAGE_NAME={{.Registry}}${SERVICE_NAME}
 
 set -o errexit
 GOOS=linux GOARCH=amd64 go build -i -o _bin/${SERVICE_NAME}
@@ -719,9 +719,9 @@ rm -f _bin/${SERVICE_NAME}`
 	dockerFileTemplate = `FROM alpine:3.12.0
 RUN apk add --update ca-certificates && \
     rm -rf /var/cache/apk/* /tmp/*
-ENV PORT {{.Port}} 
-ENV SERVER_NAME {{.PkgName}}
-ENV SERVER_ADDR 0.0.0.0:{{.Port}}
+ENV PORT {{.Port}}
+ENV SERVER_NAME {{.PkgName}}.{{.ServiceName}}
+ENV SERVER_ADDRESS 0.0.0.0:{{.Port}}
 WORKDIR /app
 ADD _bin/${SERVER_NAME} /app
 EXPOSE ${PORT}
@@ -737,23 +737,28 @@ vpath %.pb.go ./grpc
 PROTO_PATH=./grpc/protos
 PB_TARGET=./grpc
 
-export ADDRESS=0.0.0.0:{{.Port}}
+export SERVER_ADDRESS=0.0.0.0:{{.Port}}
 
 $(PROJECT_NAME).pb.go: $(PROJECT_NAME).proto
 	@echo "building *.pb.go"
 	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
-	sobe-kit -r -p=./../{{.PkgName}}
+	sobe-kit -g -p=./../{{.PkgName}}
 
 $(PROJECT_NAME):  $(PROJECT_NAME).pb.go
 	@echo "build " $(PROJECT_NAME)
 	if [ ! -e _bin ]; then mkdir _bin; fi;
 	go build -i -o _bin/$(PROJECT_NAME)
 
-.PHONY: proto
-proto:
+.PHONY: gen 
+gen:
 	@echo "building *.pb.go"
 	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
-	sobe-kit -r -p=./../{{.PkgName}}
+	sobe-kit -g -p=./../{{.PkgName}}
+
+.PHONY: check
+check:
+	go vet ./...
+	go test -race $$(go list ./...| grep -v pkg)
 
 .PHONY: build
 build: $(PROJECT_NAME)
@@ -771,7 +776,7 @@ run: $(PROJECT_NAME)
 clean:
 	rm -rf _bin
 	rm -rf ./api
-	rm -rf ./grpc/*.go
+	rm -rf ./grpc/*.pb.go
 	rm -rf ./grpc/client
 	rm -rf ./grpc/endpoints
 	rm -rf ./grpc/transport
@@ -782,49 +787,75 @@ image:
 	rm -rf _bin
 	sh ./build.sh`
 
-	deploymentTemplate = `
-apiVersion: apps/v1
+	deploymentTemplate = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: sobe 
-  name: {{.PkgName}}-deploy
-
+  namespace: {{.Namespace}} 
+  name: {{.PkgName}}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: {{.PkgName}} 
-
+      name: {{.PkgName}}
   template:
     metadata:
       labels:
         name: {{.PkgName}} 
-        name: {{.PkgName}} 
     spec:
       containers:
         - name: {{.PkgName}} 
-          image: docker-sobe.wxhoutai.com:3333/sobe/{{.PkgName}}:v0.0.1
+          image: {{.Registry}}{{.PkgName}}:v0.0.1
           imagePullPolicy: Always
           ports:
-			- name: {{.PkgName}}-port
+			- name: {{.PkgName}}
               containerPort: {{.Port}}
-          livenessProbe:
-          readnessProbe:
-
+          volumeMounts:
+            - name: {{.PkgName}}.configmap 
+              mountPath: /app/conf
         - name: health
-          image: docker-sobe.wxhoutai.com:3333/timi/health:v0.0.1
+          image: {{.Registry}}health:v0.0.1
           imagePullPolicy: Always
           command: [
             "/health",
-            "--health_address=0.0.0.0:8081",
-            "--server_name=user-center",
-            "--server_address=127.0.0.1:2081"
+            "--health_address=0.0.0.0:8080",
+            "--server_name={{.PkgName}}.{{.ServiceName}}",
+            "--server_address=127.0.0.1:{{.Port}}"
           ]
           livenessProbe:
             httpGet:
               path: /health
-              port: 8081
+              port: 8080
             initialDelaySeconds: 3
             periodSeconds: 3
+      volumes:
+        - name: {{.PkgName}}.configmap
+          configMap:
+            name: {{.PkgName}}
+`
+	configMapTemplate = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.PkgName}}
+  namespace: {{.Namespace}} 
+data:
+  {{.PkgName}}.conf: |
+    {
+      "name": "{{.PkgName}}",
+      "age": 18,
+      "port": {{.Port}}
+    }
+`
+
+	k8sServiceTemplate = `apiVersion: v1
+kind: Service
+metadata:
+  name: {{.PkgName}}
+  namespace: {{.Namespace}} 
+spec:
+  selector:
+    name: {{.PkgName}}
+  ports:
+    - port: {{.Port}} 
+      protocol: TCP
 `
 )

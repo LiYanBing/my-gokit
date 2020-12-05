@@ -13,11 +13,13 @@ import (
 )
 
 var (
-	create      bool
-	port        int
-	reGen       bool
-	projectPath string
-	serviceName string
+	create        bool
+	port          int
+	reGen         bool
+	projectPath   string
+	serviceName   string
+	namespace     string
+	imageRegistry string
 )
 
 var rootCmd = &cobra.Command{
@@ -29,11 +31,13 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&create, "create", "c", false, "是否是生成项目")
-	rootCmd.Flags().IntVarP(&port, "port", "P", 2048, "服务端口，默认2048")
-	rootCmd.Flags().StringVarP(&projectPath, "project-path", "p", "", "生成项目路径，需要包含项目名称,例如 ./app")
-	rootCmd.Flags().StringVarP(&serviceName, "service-name", "s", "", "proto 服务名称；默认跟项目名称相同")
-	rootCmd.Flags().BoolVarP(&reGen, "re-generate", "r", false, "是否重新生成 api grpc/client、endpoints、transport")
+	rootCmd.Flags().BoolVarP(&create, "create", "c", false, "创建项目")
+	rootCmd.Flags().IntVarP(&port, "port", "P", 2048, "服务端口(默认2048)")
+	rootCmd.Flags().StringVarP(&projectPath, "project-path", "p", "", "生成项目路径(需要包含项目名称例如./app)")
+	rootCmd.Flags().StringVarP(&serviceName, "service-name", "s", "", "proto服务名称(默认跟项目名称相同)")
+	rootCmd.Flags().BoolVarP(&reGen, "generate", "g", false, "重新生成 api grpc/client、endpoints、transport文件")
+	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "sobe", "k8s对象的namespace(默认值sobe)")
+	rootCmd.Flags().StringVarP(&imageRegistry, "image-registry", "i", "", "镜像仓库")
 }
 
 func Execute() {
@@ -46,7 +50,6 @@ func FirstUpper(input string) string {
 	if len(input) <= 0 {
 		return input
 	}
-
 	return strings.ToUpper(input[:1]) + input[1:]
 }
 
@@ -56,7 +59,13 @@ func work() {
 	}
 
 	if len(strings.TrimSpace(projectPath)) == 0 {
-		log.Fatal("please input -p flags")
+		fmt.Println("请输入完整的文件路径(例如 -p=./user)")
+		return
+	}
+
+	if create && len(strings.TrimSpace(imageRegistry)) == 0 {
+		fmt.Println("请输入镜像仓库(例如 -i=hub.docker.com/sobe/)")
+		return
 	}
 
 	serviceName = FirstUpper(serviceName)
@@ -74,6 +83,8 @@ func genGRPCServerAndClient(projectPath string) error {
 		Quote:       "`",
 		ProjectPath: projectPath,
 		Port:        port,
+		Namespace:   namespace,
+		Registry:    imageRegistry,
 	}
 	grpcPath := filepath.Join(projectPath, "grpc")
 	protoFilePath := filepath.Join(grpcPath, fmt.Sprintf("%v.pb.go", data.PkgName))
@@ -87,6 +98,23 @@ func genGRPCServerAndClient(projectPath string) error {
 
 		// create /conf/xx.conf
 		err = gokit_tool.GenConfig(filepath.Join(projectPath, "conf", fmt.Sprintf("%v.conf", data.PkgName)), data)
+		if err != nil {
+			return err
+		}
+
+		// create /conf/deployment.yaml
+		err = gokit_tool.GenK8sDeployment(filepath.Join(projectPath, "conf", fmt.Sprintf("%s-deploy.yaml", data.PkgName)), data)
+		if err != nil {
+			return err
+		}
+
+		// create /conf/service.yaml
+		err = gokit_tool.GenK8sService(filepath.Join(projectPath, "conf", fmt.Sprintf("%s-svc.yaml", data.PkgName)), data)
+		if err != nil {
+			return err
+		}
+
+		err = gokit_tool.GenK8sConfigMap(filepath.Join(projectPath, "conf", fmt.Sprintf("%s-config.yaml", data.PkgName)), data)
 		if err != nil {
 			return err
 		}

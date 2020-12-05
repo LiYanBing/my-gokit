@@ -79,6 +79,20 @@ func GenMakefile(filePath string, data *Data) error {
 	return genFileWithTemplate(filePath, makefileTemplate, false, false, data)
 }
 
+// deployment.yaml
+func GenK8sDeployment(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, deploymentTemplate, false, false, data)
+}
+
+// configmap.yaml
+func GenK8sConfigMap(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, configMapTemplate, false, false, data)
+}
+
+func GenK8sService(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, k8sServiceTemplate, false, false, data)
+}
+
 // server
 func GenServer(filePath string, data *Data) error {
 	return genFileWithTemplate(filePath, serverTemplate, false, true, data)
@@ -114,6 +128,8 @@ type Data struct {
 	Quote       string
 	ProjectPath string
 	Port        int
+	Namespace   string
+	Registry    string
 }
 
 type Method struct {

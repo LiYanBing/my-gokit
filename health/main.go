@@ -48,11 +48,13 @@ func main() {
 			Service: serverName,
 		}, &reply)
 		if err != nil {
+			fmt.Println(err)
 			writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("ok"))
 	}))
 	if err != nil {
 		log.Fatal(err)
@@ -64,7 +66,7 @@ func GetGRPCConn(addr string) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                time.Hour,
+			Time:                time.Second * 10,
 			Timeout:             time.Second * 5,
 			PermitWithoutStream: false,
 		}),
