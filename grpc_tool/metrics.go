@@ -3,8 +3,11 @@ package grpc_tool
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/metrics"
@@ -86,4 +89,13 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func NewExposer(addr string) {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			panic(err)
+		}
+	}()
 }

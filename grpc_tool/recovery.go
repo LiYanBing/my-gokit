@@ -14,7 +14,7 @@ import (
 )
 
 // coped from gin
-func Recovery(_, _ string) endpoint.Middleware {
+func Recover(_, _ string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (ret interface{}, err error) {
 			defer func() {
@@ -31,7 +31,7 @@ func Recovery(_, _ string) endpoint.Middleware {
 func CatchGoroutinePanic() {
 	if err := recover(); err != nil {
 		stack := stack(3)
-		log.Printf("[Recovery] panic recovered:\n%s\n%s\n", err, stack)
+		log.Printf("[WrapRecover] panic recovered:\n%s\n%s\n", err, stack)
 	}
 }
 
@@ -63,7 +63,7 @@ func stack(skip int) []byte {
 }
 
 /**
-below codes copied from gin.Recovery()
+below codes copied from gin.WrapRecover()
 */
 
 var (

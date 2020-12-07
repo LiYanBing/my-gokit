@@ -137,6 +137,7 @@ type Data struct {
 	Namespace    string
 	Registry     string
 	ImportPrefix string
+	MetricPort   int
 }
 
 type Method struct {

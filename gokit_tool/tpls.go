@@ -85,10 +85,12 @@ func wrapEndpoint(service, method string, endpoint endpoint.Endpoint) endpoint.E
 	return endpoint
 }
 
-func WrapEndpoints(serviceName string, service {{.PkgName}}.{{.ServiceName}}Server) *Endpoints {
+func WrapEndpoints(service {{.PkgName}}.{{.ServiceName}}Server) *Endpoints {
+	serviceName := {{.PkgName}}.ServiceName
+	metric := grpc_tool.NewMetricsCollector()
 	return &Endpoints{
 {{- range .Methods}}
-	{{.Name}}Endpoint: wrapEndpoint(serviceName, "{{.Name}}", wrap{{.Name}}(service)),
+	{{.Name}}Endpoint: wrapEndpoint(serviceName, "{{.Name}}", metric.Collect(serviceName, "{{.Name}}")(grpc_tool.Recover(serviceName, "{{.Name}}")(wrap{{.Name}}(service)))),
 {{- end}}
 	}
 }`
@@ -123,7 +125,7 @@ func (g *gRPCServer) {{.Name}}(ctx context.Context, req *{{$.PkgName}}.{{.Reques
 {{end}}
 
 func NewGRPCServer(service {{.PkgName}}.{{.ServiceName}}Server) {{.PkgName}}.{{.ServiceName}}Server {
-	eps := endpoints.WrapEndpoints({{.PkgName}}.ServiceName, service)
+	eps := endpoints.WrapEndpoints(service)
 	return &gRPCServer{
 	{{- range .Methods}}
 		{{FirstLower .Name}}Handler: grpc.NewServer(
@@ -676,6 +678,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if metricAddress := os.Getenv("METRIC_ADDRESS"); len(metricAddress) > 0 {
+		grpc_tool.NewExposer(metricAddress)
+	}
+
 	listener, err := net.Listen("tcp", os.Getenv("SERVER_ADDRESS"))
 	if err != nil {
 		log.Fatal(err)
@@ -721,11 +727,14 @@ rm -f _bin/${SERVICE_NAME}`
 RUN apk add --update ca-certificates && \
     rm -rf /var/cache/apk/* /tmp/*
 ENV PORT {{.Port}}
-ENV SERVER_NAME {{.PkgName}}.{{.ServiceName}}
+ENV SERVER_NAME {{.ServiceName}}
 ENV SERVER_ADDRESS 0.0.0.0:{{.Port}}
+{{if gt .MetricPort 0}}ENV METRIC_ADDRESS 0.0.0.0:{{.MetricPort}}{{end}}
 WORKDIR /app
-ADD _bin/${SERVER_NAME} /app
-EXPOSE ${PORT}
+COPY conf/{{.PkgName}}.conf /app/conf/{{.PkgName}}.conf
+ADD _bin/{{.PkgName}} /app
+EXPOSE {{.Port}}
+{{if gt .MetricPort 0}}EXPOSE {{.MetricPort}}{{end}}
 CMD [ "./{{.PkgName}}" ]
 `
 
@@ -739,6 +748,7 @@ PROTO_PATH=./grpc
 PB_TARGET=./grpc
 
 export SERVER_ADDRESS=0.0.0.0:{{.Port}}
+{{if gt .MetricPort 0}}export METRIC_ADDRESS=0.0.0.0:{{.MetricPort}}{{end}}
 
 $(PROJECT_NAME).pb.go: $(PROJECT_NAME).proto
 	@echo "building *.pb.go"
@@ -784,7 +794,7 @@ clean:
 
 .PHONY: image
 image:
-	make proto
+	make gen 
 	rm -rf _bin
 	sh ./build.sh`
 
