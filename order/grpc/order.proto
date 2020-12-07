@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "pb;order";
+
+service Order {
+	rpc Health (HealthRequest) returns (HealthResponse) {}
+}
+
+message HealthRequest {
+	string service = 1;
+}
+
+message HealthResponse {
+	int64 status = 1;
+}

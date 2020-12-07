@@ -76,22 +76,24 @@ func work() {
 }
 
 func genGRPCServerAndClient(projectPath string) error {
-	data := &gokit_tool.Data{
-		PkgName:     filepath.Base(projectPath),
-		ServiceName: serviceName,
-		ImportPath:  filepath.Join(gokit_tool.ParseProjectImportPath(projectPath), "grpc"),
-		Quote:       "`",
-		ProjectPath: projectPath,
-		Port:        port,
-		Namespace:   namespace,
-		Registry:    imageRegistry,
-	}
+	importPrefix := gokit_tool.ParseProjectImportPath(projectPath)
 	grpcPath := filepath.Join(projectPath, "grpc")
-	protoFilePath := filepath.Join(grpcPath, fmt.Sprintf("%v.pb.go", data.PkgName))
+
+	data := &gokit_tool.Data{
+		ImportPrefix: importPrefix,
+		PkgName:      filepath.Base(projectPath),
+		ServiceName:  serviceName,
+		ImportPath:   filepath.Join(importPrefix, "grpc", "pb"),
+		Quote:        "`",
+		ProjectPath:  projectPath,
+		Port:         port,
+		Namespace:    namespace,
+		Registry:     imageRegistry,
+	}
 
 	if create {
 		// create proto
-		err := gokit_tool.GenProto(filepath.Join(projectPath, "grpc", "protos", fmt.Sprintf("%v.proto", data.PkgName)), data)
+		err := gokit_tool.GenProto(filepath.Join(projectPath, "grpc", fmt.Sprintf("%v.proto", data.PkgName)), data)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -165,12 +167,18 @@ func genGRPCServerAndClient(projectPath string) error {
 	if reGen || create {
 		var err error
 		// parse project/grpc/prject.pb.go file
-		data.Methods, err = gokit_tool.ParseProtoPBFile(protoFilePath, serviceName)
+		data.Methods, err = gokit_tool.ParseProtoPBFile(filepath.Join(grpcPath, "pb", fmt.Sprintf("%v.pb.go", data.PkgName)), serviceName)
 		if err != nil {
 			return err
 		}
 
-		// create /project/api/api.go file
+		// create  project/grpc/pb/constant.go
+		err = gokit_tool.GenConstant(filepath.Join(grpcPath, "pb", "constant.go"), data)
+		if err != nil {
+			return err
+		}
+
+		// create project/api/api.go file
 		err = gokit_tool.GenAPI(filepath.Join(projectPath, "api", "api.go"), data)
 		if err != nil {
 			return err

@@ -2,7 +2,8 @@ package gokit_tool
 
 const (
 	protoTemplate = `syntax = "proto3";
-package {{.PkgName}};
+
+option go_package = "pb;{{.PkgName}}";
 
 service {{.ServiceName}} {
 	rpc Health (HealthRequest) returns (HealthResponse) {}
@@ -17,10 +18,10 @@ message HealthResponse {
 }
 `
 
-	constantTemplate = `package %s 
+	constantTemplate = `package {{.PkgName}} 
 
 var (
-	ServiceName = _%s_serviceDesc.ServiceName
+	ServiceName = _{{.ServiceName}}_serviceDesc.ServiceName
 )`
 	apiTemplate = `
 package {{.PkgName}}
@@ -98,7 +99,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/transport/grpc"
-	"{{.ImportPath}}/endpoints"
+	"{{.ImportPrefix}}/grpc/endpoints"
 	"sobe-kit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
@@ -166,7 +167,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	trans "github.com/go-kit/kit/transport/grpc"
-	edp "{{.ImportPath}}/endpoints"
+	edp "{{.ImportPrefix}}/grpc/endpoints"
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
@@ -661,8 +662,8 @@ import (
 	"time"
 
 	"sobe-kit/grpc_tool"
-	"{{ServicePath .ImportPath}}"
-	"{{.ImportPath}}/transport"
+	"{{.ImportPrefix}}/service"
+	"{{.ImportPrefix}}/grpc/transport"
 	"google.golang.org/grpc"
 
 	{{.PkgName}} "{{.ImportPath}}"
@@ -731,10 +732,10 @@ CMD [ "./{{.PkgName}}" ]
 	makefileTemplate = `PROJECT_NAME=$(notdir $(shell pwd))
 
 vpath $(PROJECT_NAME) ./_bin
-vpath %.proto ./grpc/protos
-vpath %.pb.go ./grpc
+vpath %.proto ./grpc
+vpath %.pb.go ./grpc/pb
 
-PROTO_PATH=./grpc/protos
+PROTO_PATH=./grpc
 PB_TARGET=./grpc
 
 export SERVER_ADDRESS=0.0.0.0:{{.Port}}
@@ -776,7 +777,7 @@ run: $(PROJECT_NAME)
 clean:
 	rm -rf _bin
 	rm -rf ./api
-	rm -rf ./grpc/*.pb.go
+	rm -rf ./grpc/pb
 	rm -rf ./grpc/client
 	rm -rf ./grpc/endpoints
 	rm -rf ./grpc/transport

@@ -50,13 +50,19 @@ func GenConfig(filePath string, data *Data) error {
 	return genFileWithTemplate(filePath, configTemplate, false, false, data)
 }
 
+// constant
+func GenConstant(filePath string, data *Data) error {
+	return genFileWithTemplate(filePath, constantTemplate, false, true, data)
+	//return createFile(filepath.Join(path, "grpc", "constant.go"), fmt.Sprintf(constantTemplate, pkgName, serviceName), true, 0666)
+}
+
 // **.pb.go
 func CompileProto(path, serviceName, pkgName string) error {
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s && protoc --proto_path=./grpc/protos --go_out=plugins=grpc:./grpc ./grpc/protos/*.proto", pkgName))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s && protoc --proto_path=./grpc --go_out=plugins=grpc:./grpc ./grpc/*.proto", pkgName))
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	return createFile(filepath.Join(path, "grpc", "constant.go"), fmt.Sprintf(constantTemplate, pkgName, serviceName), true, 0666)
+	return nil
 }
 
 // main.go
@@ -121,15 +127,16 @@ var (
 )
 
 type Data struct {
-	PkgName     string
-	ServiceName string
-	ImportPath  string
-	Methods     []*Method
-	Quote       string
-	ProjectPath string
-	Port        int
-	Namespace   string
-	Registry    string
+	PkgName      string
+	ServiceName  string
+	ImportPath   string
+	Methods      []*Method
+	Quote        string
+	ProjectPath  string
+	Port         int
+	Namespace    string
+	Registry     string
+	ImportPrefix string
 }
 
 type Method struct {
