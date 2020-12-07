@@ -14,7 +14,7 @@ import (
 )
 
 // coped from gin
-func Recovery() endpoint.Middleware {
+func Recovery(_, _ string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (ret interface{}, err error) {
 			defer func() {
@@ -26,7 +26,6 @@ func Recovery() endpoint.Middleware {
 			return next(ctx, request)
 		}
 	}
-
 }
 
 func CatchGoroutinePanic() {
