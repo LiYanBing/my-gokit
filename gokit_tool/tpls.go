@@ -3,6 +3,8 @@ package gokit_tool
 const (
 	protoTemplate = `syntax = "proto3";
 
+package {{.PkgName}};
+
 option go_package = "pb;{{.PkgName}}";
 
 service {{.ServiceName}} {
@@ -764,15 +766,14 @@ rm -f _bin/${SERVICE_NAME}`
 RUN apk add --update ca-certificates && \
     rm -rf /var/cache/apk/* /tmp/*
 ENV PORT {{.Port}}
-ENV SERVER_NAME {{.ServiceName}}
-ENV SERVER_ADDRESS 0.0.0.0:{{.Port}}
+ENV SERVER_ADDRESS 0.0.0.0:${PORT}
 {{if gt .MetricPort 0}}ENV METRIC_ADDRESS 0.0.0.0:{{.MetricPort}}{{end}}
 WORKDIR /app
 COPY conf/{{.PkgName}}.conf /app/conf/{{.PkgName}}.conf
 ADD _bin/{{.PkgName}} /app
-EXPOSE {{.Port}}
+EXPOSE ${PORT}
 {{if gt .MetricPort 0}}EXPOSE {{.MetricPort}}{{end}}
-CMD [ "./{{.PkgName}}" ]
+ENTRYPOINT [ "./{{.PkgName}}" ]
 `
 
 	makefileTemplate = `PROJECT_NAME=$(notdir $(shell pwd))
@@ -844,11 +845,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      name: {{.PkgName}}
+      app: {{.PkgName}}
+      version: v1
   template:
     metadata:
       labels:
-        name: {{.PkgName}} 
+        app: {{.PkgName}} 
+        version: v1
     spec:
       containers:
         - name: {{.PkgName}} 
@@ -900,9 +903,11 @@ metadata:
   namespace: {{.Namespace}} 
 spec:
   selector:
-    name: {{.PkgName}}
+    app: {{.PkgName}}
+	version: v1
   ports:
     - port: {{.Port}} 
       protocol: TCP
+      name: grpc
 `
 )
