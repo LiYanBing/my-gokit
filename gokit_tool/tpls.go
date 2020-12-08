@@ -46,6 +46,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/tracing/opentracing"
 	"sobe-kit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
@@ -77,7 +78,11 @@ func wrap{{.Name}}(service {{$.PkgName}}.{{$.ServiceName}}Server) endpoint.Endpo
 }
 {{end}}
 
-func wrapEndpoint(service, method string, endpoint endpoint.Endpoint) endpoint.Endpoint {
+func wrapEndpoint(service, method string, endpoint endpoint.Endpoint, opt *grpc_tool.Options) endpoint.Endpoint {
+	endpoint = grpc_tool.Recover(service, method)(endpoint)
+	endpoint = opt.Collect.Collect(service, method)(endpoint)
+	endpoint = opentracing.TraceServer(opt.Trace, method)(endpoint)
+
 	wrappers := grpc_tool.GetEndpointMiddleware(service, method)
 	for _, wrap := range wrappers {
 		endpoint = wrap(endpoint)
@@ -85,12 +90,11 @@ func wrapEndpoint(service, method string, endpoint endpoint.Endpoint) endpoint.E
 	return endpoint
 }
 
-func WrapEndpoints(service {{.PkgName}}.{{.ServiceName}}Server) *Endpoints {
+func WrapEndpoints(service {{.PkgName}}.{{.ServiceName}}Server, opt *grpc_tool.Options) *Endpoints {
 	serviceName := {{.PkgName}}.ServiceName
-	metric := grpc_tool.NewMetricsCollector()
 	return &Endpoints{
 {{- range .Methods}}
-	{{.Name}}Endpoint: wrapEndpoint(serviceName, "{{.Name}}", metric.Collect(serviceName, "{{.Name}}")(grpc_tool.Recover(serviceName, "{{.Name}}")(wrap{{.Name}}(service)))),
+	{{.Name}}Endpoint: wrapEndpoint(serviceName, "{{.Name}}",wrap{{.Name}}(service), opt),
 {{- end}}
 	}
 }`
@@ -100,9 +104,11 @@ package transport
 import (
 	"context"
 
-	"github.com/go-kit/kit/transport/grpc"
 	"{{.ImportPrefix}}/grpc/endpoints"
 	"sobe-kit/grpc_tool"
+
+	"github.com/go-kit/kit/tracing/opentracing"
+	"github.com/go-kit/kit/transport/grpc"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -124,15 +130,21 @@ func (g *gRPCServer) {{.Name}}(ctx context.Context, req *{{$.PkgName}}.{{.Reques
 }
 {{end}}
 
-func NewGRPCServer(service {{.PkgName}}.{{.ServiceName}}Server) {{.PkgName}}.{{.ServiceName}}Server {
-	eps := endpoints.WrapEndpoints(service)
+func NewGRPCServer(service {{.PkgName}}.{{.ServiceName}}Server, opts ...grpc_tool.Option) {{.PkgName}}.{{.ServiceName}}Server {
+	options := grpc_tool.NewOptions()
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	serviceName := {{.PkgName}}.ServiceName
+	eps := endpoints.WrapEndpoints(service,options)
 	return &gRPCServer{
 	{{- range .Methods}}
 		{{FirstLower .Name}}Handler: grpc.NewServer(
 			eps.{{.Name}}Endpoint,
 			DecodeRequestFunc,
 			EncodeResponseFunc,
-			grpc_tool.GetServerOptions({{$.PkgName}}.ServiceName, "{{.Name}}")...),
+			append(grpc_tool.GetServerOptions(serviceName, "{{.Name}}"), grpc.ServerBefore(opentracing.GRPCToContext(options.Trace, "{{.Name}}", options.Logger)))...),
 	{{end}}
 	}
 }
@@ -163,8 +175,8 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/sd/lb"
+    "github.com/go-kit/kit/tracing/opentracing"
 	"github.com/hashicorp/consul/api"
-	"sobe-kit/grpc_tool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -173,8 +185,8 @@ import (
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
-func NewClient(opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Server, error) {
-	o := grpc_tool.NewClientOptions()
+func NewClient(opts ...grpc_tool.Option) ({{.PkgName}}.{{.ServiceName}}Server, error) {
+	o := grpc_tool.NewOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -189,7 +201,7 @@ func NewClient(opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Ser
 		return nil, err
 	}
 
-	wrap := wrapMethod({{.PkgName}}.ServiceName, conn)
+	wrap := wrapMethod({{.PkgName}}.ServiceName, conn, o)
 	return &edp.Endpoints{
 	{{- range .Methods}}
 		{{.Name}}Endpoint: wrap("{{.Name}}", new({{$.PkgName}}.{{.ResponseName}})),
@@ -197,7 +209,7 @@ func NewClient(opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Ser
 	}, nil
 }
 
-func wrapMethod(serviceName string, conn *grpc.ClientConn) func(method string, reply interface{}) endpoint.Endpoint {
+func wrapMethod(serviceName string, conn *grpc.ClientConn, opt *grpc_tool.Options) func(method string, reply interface{}) endpoint.Endpoint {
 	return func(method string, reply interface{}) endpoint.Endpoint {
 		ep := trans.NewClient(
 			conn,
@@ -206,7 +218,7 @@ func wrapMethod(serviceName string, conn *grpc.ClientConn) func(method string, r
 			encodeGRPCRequest,
 			decodeGRPCResponse,
 			reply,
-			grpc_tool.GetClientOptions(serviceName, method)...).Endpoint()
+			append(grpc_tool.GetClientOptions(serviceName, method), trans.ClientBefore(opentracing.ContextToGRPC(opt.Trace, opt.Logger)))...).Endpoint()
 
 		return wrapEndpoint(
 			serviceName,
@@ -216,8 +228,8 @@ func wrapMethod(serviceName string, conn *grpc.ClientConn) func(method string, r
 }
 
 // consul load balance
-func NewClientWithConsul(consulAddr, dataCenter string, opts ...grpc_tool.ClientOption) ({{.PkgName}}.{{.ServiceName}}Server, error) {
-	o := grpc_tool.NewClientOptions()
+func NewClientWithConsul(consulAddr, dataCenter string, opts ...grpc_tool.Option) ({{.PkgName}}.{{.ServiceName}}Server, error) {
+	o := grpc_tool.NewOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -329,6 +341,9 @@ import (
 
     "sobe-kit/props"
 
+	"github.com/go-kit/kit/log"
+	"github.com/opentracing/opentracing-go"
+
 	{{.PkgName}} "{{.ImportPath}}"
 )
 
@@ -346,7 +361,7 @@ type Config struct {
 type service struct {
 }
 
-func New{{FirstUpper .ServiceName}}() ({{FirstUpper .ServiceName}}Service, error) {
+func New{{FirstUpper .ServiceName}}(trace opentracing.Tracer, log log.Logger) ({{FirstUpper .ServiceName}}Service, error) {
     var cfg Config
 	err := props.ConfigFromFile(props.JsonDecoder(&cfg), props.Always, props.FilePath("./conf/{{.PkgName}}.conf"))
 	if err != nil {
@@ -669,40 +684,52 @@ import (
 	"google.golang.org/grpc"
 
 	{{.PkgName}} "{{.ImportPath}}"
+    logger "github.com/go-kit/kit/log"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	handle, err := service.New{{.ServiceName}}()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if metricAddress := os.Getenv("METRIC_ADDRESS"); len(metricAddress) > 0 {
-		grpc_tool.NewExposer(metricAddress)
-	}
-
 	listener, err := net.Listen("tcp", os.Getenv("SERVER_ADDRESS"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	var opts []grpc_tool.Option
+	if metricAddress := os.Getenv("METRIC_ADDRESS"); len(metricAddress) > 0 {
+		grpc_tool.NewExposer(metricAddress)
+		opts = append(opts, grpc_tool.WithCollect(grpc_tool.NewMetricsCollector()))
+	}
+
+	trace, traceCloser := grpc_tool.NewJaegerTracer("{{.ServiceName}}", os.Getenv("TRACE_ADDRESS"))
+	l := logger.NewNopLogger()
+
+	handle, err := service.New{{.ServiceName}}(trace, l)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	grpcSvr := grpc.NewServer()
-	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr, transport.NewGRPCServer(handle))
+	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr,
+		transport.NewGRPCServer(handle, append(opts, grpc_tool.WithTrace(trace), grpc_tool.WithLogger(l))...))
 
 	grpc_tool.Graceful(func() {
 		grpcSvr.GracefulStop()
 		err := handle.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+		}
+
+		err = traceCloser.Close()
+		if err != nil {
+			log.Println(err)
 		}
 	})
 
-	log.Printf("%v started with %v", "{{.PkgName}}", listener.Addr().String())
+	log.Printf("%v started with %v", "order", listener.Addr().String())
 	err = grpcSvr.Serve(listener)
 	if err != nil {
 		log.Fatal(err)
-	}
+	}	
 }
 `
 

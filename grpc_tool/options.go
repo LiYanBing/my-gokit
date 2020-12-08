@@ -1,42 +1,61 @@
 package grpc_tool
 
-import "github.com/go-kit/kit/log"
+import (
+	"github.com/go-kit/kit/log"
+	"github.com/opentracing/opentracing-go"
+)
 
-type ClientOptions struct {
-	Cert       []byte     // 证书信息
-	Tags       []string   // 服务tags
-	Logger     log.Logger // 日志
-	ServerName string     // 证书服务名称
+type Options struct {
+	Cert       []byte   // 证书信息
+	Tags       []string // 服务tags
+	ServerName string   // 证书服务名称
+	Trace      opentracing.Tracer
+	Logger     log.Logger
+	Collect    Collector
 }
 
-func NewClientOptions() *ClientOptions {
-	return &ClientOptions{
-		Logger: log.NewNopLogger(),
+func NewOptions() *Options {
+	return &Options{
+		Logger:  log.NewNopLogger(),
+		Trace:   opentracing.NoopTracer{},
+		Collect: NewNopMetricsCollector(),
 	}
 }
 
-type ClientOption func(opt *ClientOptions)
+type Option func(*Options)
 
-func WithCert(cert []byte) ClientOption {
-	return func(opt *ClientOptions) {
+func WithCert(cert []byte) Option {
+	return func(opt *Options) {
 		opt.Cert = cert
 	}
 }
 
-func WithTags(tags []string) ClientOption {
-	return func(opt *ClientOptions) {
+func WithTags(tags []string) Option {
+	return func(opt *Options) {
 		opt.Tags = tags
 	}
 }
 
-func WithLogger(log log.Logger) ClientOption {
-	return func(opt *ClientOptions) {
+func WithLogger(log log.Logger) Option {
+	return func(opt *Options) {
 		opt.Logger = log
 	}
 }
 
-func WithServerName(name string) ClientOption {
-	return func(opt *ClientOptions) {
+func WithServerName(name string) Option {
+	return func(opt *Options) {
 		opt.ServerName = name
+	}
+}
+
+func WithTrace(trace opentracing.Tracer) Option {
+	return func(opts *Options) {
+		opts.Trace = trace
+	}
+}
+
+func WithCollect(coll Collector) Option {
+	return func(opts *Options) {
+		opts.Collect = coll
 	}
 }

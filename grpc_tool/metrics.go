@@ -73,7 +73,7 @@ func NewNopMetricsCollector() *nopMetricsCollector {
 
 type nopMetricsCollector struct{}
 
-func (nop *nopMetricsCollector) Collect(serviceName, method string) endpoint.Middleware {
+func (nop nopMetricsCollector) Collect(serviceName, method string) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (interface{}, error) {
 			return next(ctx, request)
