@@ -343,6 +343,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/opentracing/opentracing-go"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -350,6 +352,7 @@ import (
 type {{FirstUpper .ServiceName}}Service interface {
 	io.Closer
 	{{.PkgName}}.{{FirstUpper .ServiceName}}Server
+    grpc_health_v1.HealthServer
 }
 
 type Config struct {
@@ -359,6 +362,7 @@ type Config struct {
 }
 
 type service struct {
+	*health.Server
 }
 
 func New{{FirstUpper .ServiceName}}(trace opentracing.Tracer, log log.Logger) ({{FirstUpper .ServiceName}}Service, error) {
@@ -367,7 +371,12 @@ func New{{FirstUpper .ServiceName}}(trace opentracing.Tracer, log log.Logger) ({
 	if err != nil {
 		return nil, err
 	}
-	return &service{}, nil
+
+	checkServer := health.NewServer()
+	checkServer.SetServingStatus("health", grpc_health_v1.HealthCheckResponse_SERVING)
+	return &service{
+		Server: checkServer,
+	}, nil
 }
 
 func (s *service) Close() error {
@@ -682,6 +691,7 @@ import (
 	"{{.ImportPrefix}}/service"
 	"{{.ImportPrefix}}/grpc/transport"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	{{.PkgName}} "{{.ImportPath}}"
     logger "github.com/go-kit/kit/log"
@@ -709,8 +719,8 @@ func main() {
 	}
 
 	grpcSvr := grpc.NewServer()
-	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr,
-		transport.NewGRPCServer(handle, append(opts, grpc_tool.WithTrace(trace), grpc_tool.WithLogger(l))...))
+	{{.PkgName}}.Register{{.ServiceName}}Server(grpcSvr,transport.NewGRPCServer(handle, append(opts, grpc_tool.WithTrace(trace), grpc_tool.WithLogger(l))...))
+	grpc_health_v1.RegisterHealthServer(grpcSvr, handle)
 
 	grpc_tool.Graceful(func() {
 		grpcSvr.GracefulStop()
@@ -819,8 +829,8 @@ clean:
 	rm -rf ./grpc/endpoints
 	rm -rf ./grpc/transport
 
-.PHONY: image
-image:
+.PHONY: check
+check:
 	make gen 
 	rm -rf _bin
 	sh ./build.sh`
@@ -842,7 +852,7 @@ spec:
     spec:
       containers:
         - name: {{.PkgName}} 
-          image: {{.Registry}}{{.PkgName}}:v0.0.1
+          check: {{.Registry}}{{.PkgName}}:v0.0.1
           imagePullPolicy: Always
           ports:
 			- name: {{.PkgName}}
@@ -851,12 +861,11 @@ spec:
             - name: {{.PkgName}}.configmap 
               mountPath: /app/conf
         - name: health
-          image: {{.Registry}}health:v0.0.1
+          check: {{.Registry}}health:v0.0.1
           imagePullPolicy: Always
           command: [
             "/health",
             "--health_address=0.0.0.0:8080",
-            "--server_name={{.PkgName}}.{{.ServiceName}}",
             "--server_address=127.0.0.1:{{.Port}}"
           ]
           livenessProbe:

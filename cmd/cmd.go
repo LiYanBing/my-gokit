@@ -40,7 +40,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&serviceName, "service-name", "s", "", "proto服务名称(默认跟项目名称相同)")
 	rootCmd.Flags().BoolVarP(&reGen, "generate", "g", false, "重新生成 api grpc/client、endpoints、transport文件")
 	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "sobe", "k8s对象的namespace(默认值sobe)")
-	rootCmd.Flags().StringVarP(&imageRegistry, "image-registry", "i", "", "镜像仓库")
+	rootCmd.Flags().StringVarP(&imageRegistry, "check-registry", "i", "", "镜像仓库")
 }
 
 func Execute() {
