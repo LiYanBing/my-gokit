@@ -56,7 +56,6 @@ func GetClientOptions(serverName, method string) []grpc.ClientOption {
 	for _, opt := range clientOptions {
 		options = append(options, opt(serverName, method))
 	}
-
 	return options
 }
 

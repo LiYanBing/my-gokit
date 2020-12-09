@@ -1,4 +1,4 @@
-package deviceinfo
+package utils
 
 import "testing"
 

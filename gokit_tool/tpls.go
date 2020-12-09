@@ -49,7 +49,7 @@ import (
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/tracing/opentracing"
-	"sobe-kit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 
 	{{.PkgName}} "{{.ImportPath}}"
 )
@@ -107,7 +107,7 @@ import (
 	"context"
 
 	"{{.ImportPrefix}}/grpc/endpoints"
-	"sobe-kit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/transport/grpc"
@@ -171,9 +171,8 @@ import (
 	"fmt"
 	"io"
 
-    "sobe-kit/grpc_tool"
+    "github.com/liyanbing/my-gokit/grpc_tool"
 	"github.com/go-kit/kit/endpoint"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/sd/lb"
@@ -198,7 +197,12 @@ func NewClient(opts ...grpc_tool.Option) ({{.PkgName}}.{{.ServiceName}}Server, e
 		return nil, err
 	}
 
-	conn, err := grpc.Dial("{{.PkgName}}:{{.Port}}", grpcOpts...)
+	address := "{{.PkgName}}:{{.Port}}"
+	if o.Address != "" {
+		address = o.Address
+	}
+
+	conn, err := grpc.Dial(address, grpcOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +225,7 @@ func wrapMethod(serviceName string, conn *grpc.ClientConn, opt *grpc_tool.Option
 			decodeGRPCResponse,
 			reply,
 			append(grpc_tool.GetClientOptions(serviceName, method), trans.ClientBefore(opentracing.ContextToGRPC(opt.Trace, opt.Logger)))...).Endpoint()
-
+		ep = opentracing.TraceClient(opt.Trace, method)(ep)
 		return wrapEndpoint(
 			serviceName,
 			method,
@@ -250,7 +254,7 @@ func NewClientWithConsul(consulAddr, dataCenter string, opts ...grpc_tool.Option
 	}
 
 	instanter := consul.NewInstancer(consul.NewClient(consulClient), o.Logger, {{.PkgName}}.ServiceName, o.Tags, true)
-	retryWrap := retryEndpoint(instanter, {{.PkgName}}.ServiceName, o.Logger, grpcOpts...)
+	retryWrap := retryEndpoint(instanter, {{.PkgName}}.ServiceName, o, grpcOpts...)
 	return &edp.Endpoints{
 	{{- range .Methods}}
 		{{.Name}}Endpoint: retryWrap("{{.Name}}", new({{$.PkgName}}.{{.ResponseName}})),
@@ -258,7 +262,7 @@ func NewClientWithConsul(consulAddr, dataCenter string, opts ...grpc_tool.Option
 	}, nil
 }
 
-func retryEndpoint(instanter sd.Instancer, serviceName string, logger log.Logger, opts ...grpc.DialOption) func(method string, reply interface{}) endpoint.Endpoint {
+func retryEndpoint(instanter sd.Instancer, serviceName string, opt *grpc_tool.Options, grpcOpts ...grpc.DialOption) func(method string, reply interface{}) endpoint.Endpoint {
 	return func(method string, reply interface{}) endpoint.Endpoint {
 		maxRetry, timeout := grpc_tool.GetMethodMaxRetryAndTimeout(grpc_tool.MethodName(serviceName, method))
 
@@ -268,14 +272,14 @@ func retryEndpoint(instanter sd.Instancer, serviceName string, logger log.Logger
 			lb.NewRoundRobin(
 				sd.NewEndpointer(
 					instanter,
-					endpointFactory(serviceName, method, reply, opts...),
-					logger)))
+					endpointFactory(serviceName, method, reply, opt, grpcOpts...),
+					opt.Logger)))
 	}
 }
 
-func endpointFactory(serviceName, method string, reply interface{}, opts ...grpc.DialOption) sd.Factory {
+func endpointFactory(serviceName, method string, reply interface{}, opt *grpc_tool.Options, grpcOpts ...grpc.DialOption) sd.Factory {
 	return func(instance string) (endpoint.Endpoint, io.Closer, error) {
-		conn, closer, err := grpc_tool.Get(instance, opts...)
+		conn, closer, err := grpc_tool.Get(instance, grpcOpts...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -288,6 +292,7 @@ func endpointFactory(serviceName, method string, reply interface{}, opts ...grpc
 			decodeGRPCResponse,
 			reply,
 			grpc_tool.GetClientOptions(serviceName, method)...).Endpoint()
+        ep = opentracing.TraceClient(opt.Trace, method)(ep)
 		return wrapEndpoint(serviceName, method, ep), closer, nil
 	}
 }
@@ -341,7 +346,7 @@ func (s *service) Health(_ context.Context, _ *{{.PkgName}}.HealthRequest) (*{{.
 import (
 	"io"
 
-    "sobe-kit/props"
+    "github.com/liyanbing/my-gokit/props"
 
 	"github.com/go-kit/kit/log"
 	"github.com/opentracing/opentracing-go"
@@ -402,9 +407,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"sobe-kit/deviceinfo"
-	"sobe-kit/grpc_tool"
-	"sobe-kit/props"
+	"github.com/liyanbing/my-gokit/utils"
+	"github.com/liyanbing/my-gokit/grpc_tool"
+	"github.com/liyanbing/my-gokit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"{{.ImportPath}}/transport"	
@@ -506,10 +511,10 @@ func DefaultConfig(cfg Config) (Config, error) {
 		}
 
 		if cfg.Consul.Registration.ID == "" {
-			cfg.Consul.Registration.Name = fmt.Sprintf("%v-%v-%v", deviceinfo.GetAppName(), deviceinfo.GetLANHost(), cfg.Address)
+			cfg.Consul.Registration.Name = fmt.Sprintf("%v-%v-%v", utils.GetAppName(), utils.GetLANHost(), cfg.Address)
 		}
 
-		cfg.Consul.Registration.Port, err = deviceinfo.GetPort(cfg.Address)
+		cfg.Consul.Registration.Port, err = utils.GetPort(cfg.Address)
 		if err != nil {
 			return cfg, err
 		}
@@ -551,9 +556,9 @@ import (
 	"log"
 
 	"github.com/golang/glog"
-	"sobe-kit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 	"{{ServerPath .ImportPath}}"
-	"sobe-kit/props"
+	"github.com/liyanbing/my-gokit/props"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -632,7 +637,7 @@ func CATls(rootCa, clientCa, clientKey, hostName string) grpc.DialOption {
 import (
 	"log"
 
-	"sobe-kit/props"
+	"github.com/liyanbing/my-gokit/props"
 	"{{ServerClientPath .ImportPath}}"
 	"{{ServerPath .ImportPath}}"
 	"github.com/spf13/cobra"
@@ -689,7 +694,7 @@ import (
 	"os"
 	"time"
 
-	"sobe-kit/grpc_tool"
+	"github.com/liyanbing/my-gokit/grpc_tool"
 	"{{.ImportPrefix}}/service"
 	"{{.ImportPrefix}}/grpc/transport"
 	"google.golang.org/grpc"
@@ -768,6 +773,7 @@ RUN apk add --update ca-certificates && \
 ENV PORT {{.Port}}
 ENV SERVER_ADDRESS 0.0.0.0:${PORT}
 {{if gt .MetricPort 0}}ENV METRIC_ADDRESS 0.0.0.0:{{.MetricPort}}{{end}}
+ENV TRACE_ADDRESS http://tracing-analysis-dc-sh.aliyuncs.com 
 WORKDIR /app
 COPY conf/{{.PkgName}}.conf /app/conf/{{.PkgName}}.conf
 ADD _bin/{{.PkgName}} /app
@@ -787,11 +793,12 @@ PB_TARGET=./grpc
 
 export SERVER_ADDRESS=0.0.0.0:{{.Port}}
 {{if gt .MetricPort 0}}export METRIC_ADDRESS=0.0.0.0:{{.MetricPort}}{{end}}
+export TRACE_ADDRESS=http://tracing-analysis-dc-sh.aliyuncs.com
 
 $(PROJECT_NAME).pb.go: $(PROJECT_NAME).proto
 	@echo "building *.pb.go"
 	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
-	sobe-kit -g -p=./../{{.PkgName}}
+	github.com/liyanbing/my-gokit -g -p=./../{{.PkgName}}
 
 $(PROJECT_NAME):  $(PROJECT_NAME).pb.go
 	@echo "build " $(PROJECT_NAME)
@@ -802,7 +809,7 @@ $(PROJECT_NAME):  $(PROJECT_NAME).pb.go
 gen:
 	@echo "building *.pb.go"
 	protoc --proto_path=$(PROTO_PATH) --go_out=plugins=grpc:$(PB_TARGET) $(PROTO_PATH)/*.proto
-	sobe-kit -g -p=./../{{.PkgName}}
+	github.com/liyanbing/my-gokit -g -p=./../{{.PkgName}}
 
 .PHONY: check
 check:
@@ -830,8 +837,8 @@ clean:
 	rm -rf ./grpc/endpoints
 	rm -rf ./grpc/transport
 
-.PHONY: check
-check:
+.PHONY: image 
+image:
 	make gen 
 	rm -rf _bin
 	sh ./build.sh`

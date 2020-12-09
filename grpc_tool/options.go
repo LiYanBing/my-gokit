@@ -12,6 +12,7 @@ type Options struct {
 	Trace      opentracing.Tracer
 	Logger     log.Logger
 	Collect    Collector
+	Address    string
 }
 
 func NewOptions() *Options {
@@ -45,6 +46,12 @@ func WithLogger(log log.Logger) Option {
 func WithServerName(name string) Option {
 	return func(opt *Options) {
 		opt.ServerName = name
+	}
+}
+
+func WithAddress(addr string) Option {
+	return func(opt *Options) {
+		opt.Address = addr
 	}
 }
 

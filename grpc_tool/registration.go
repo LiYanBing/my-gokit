@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
-	"sobe-kit/deviceinfo"
+	"github.com/liyanbing/my-gokit/utils"
 )
 
 type ConsulServer struct {
@@ -48,7 +48,7 @@ func RegisterServiceWithConsul(conf *ConsulConf) (Deregister, error) {
 	}
 
 	if conf.Registration.Address == "" {
-		conf.Registration.Address = deviceinfo.GetLANHost()
+		conf.Registration.Address = utils.GetLANHost()
 	}
 
 	consulClient, err := api.NewClient(&api.Config{
